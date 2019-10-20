@@ -1,0 +1,3 @@
+*
+# just need tar.gz distribution for installing the application
+!dist/**

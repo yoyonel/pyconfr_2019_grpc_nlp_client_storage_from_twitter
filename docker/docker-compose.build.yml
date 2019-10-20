@@ -1,0 +1,11 @@
+version: '3'
+services:
+  mongodb:
+    image: "centos/mongodb-32-centos7"
+    environment:
+      MONGODB_USER: ${MONGODB_USER}
+      MONGODB_PASSWORD: ${MONGODB_PASSWORD}
+      MONGODB_DATABASE: ${MONGODB_DBNAME}
+      MONGODB_ADMIN_PASSWORD: ${MONGODB_ADMIN_PASSWORD}
+    ports:
+      - "27017:27017"

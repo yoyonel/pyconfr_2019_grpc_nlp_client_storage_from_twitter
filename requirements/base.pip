@@ -1,0 +1,11 @@
+# PROCESSING
+mock
+
+# GRPC
+grpcio
+
+# TWITTER
+twint @ git+https://github.com/yoyonel/twint.git
+
+pyconfr-2019-grpc-nlp-tools==0.1.2
+pyconfr-2019-grpc-nlp-protos>=0.1.2

@@ -1,0 +1,7 @@
+mock
+mongomock
+pytest
+pytest-cov
+pytest-html
+pytest-mock
+tox

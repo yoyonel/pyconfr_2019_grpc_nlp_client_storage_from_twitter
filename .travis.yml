@@ -1,0 +1,14 @@
+if: tag IS blank
+
+language: python
+python:
+- '3.6'
+
+install:
+  - pip install -U tox-travis
+
+script:
+  - tox
+
+after_success:
+    - bash <(curl -s https://codecov.io/bash)

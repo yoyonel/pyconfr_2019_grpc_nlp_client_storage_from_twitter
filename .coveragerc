@@ -1,0 +1,8 @@
+[run]
+branch = True
+source = src/pyconfr_2019/grpc_nlp/tools
+parallel = true
+
+[report]
+show_missing = true
+precision = 2
