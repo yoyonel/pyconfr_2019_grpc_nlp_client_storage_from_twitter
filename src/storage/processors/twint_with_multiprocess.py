@@ -24,8 +24,8 @@ logger = logging.getLogger(__name__)
 
 def run_twint_with_multiprocessing(
         twint_configs,
-        twitter_analyzer_storage_addr,
-        twitter_analyzer_storage_port,
+        rpc_storage_addr,
+        rpc_storage_port,
         nb_tweets_by_chunk=20,
         log_level: Optional[str] = None
 ):
@@ -33,8 +33,8 @@ def run_twint_with_multiprocessing(
 
     Args:
         twint_configs:
-        twitter_analyzer_storage_addr:
-        twitter_analyzer_storage_port:
+        rpc_storage_addr:
+        rpc_storage_port:
         nb_tweets_by_chunk:
         log_level:
 
@@ -52,8 +52,8 @@ def run_twint_with_multiprocessing(
         kwargs={
             'queue_sync_with_twint': mp_queue,
             'event_twint_worker_is_finish': mp_event_twint_worker_is_finish,
-            'twitter_analyzer_storage_addr': twitter_analyzer_storage_addr,
-            'twitter_analyzer_storage_port': twitter_analyzer_storage_port,
+            'twitter_analyzer_storage_addr': rpc_storage_addr,
+            'twitter_analyzer_storage_port': rpc_storage_port,
             'nb_tweets_by_chunk': nb_tweets_by_chunk,
             'log_level': log_level,
         }
@@ -123,11 +123,14 @@ def loop_consume_tweets_from_twint_mp(
         init_logger(log_level)
 
     # init gRPC stub to access to Storage service(r)
-    storage_rpc_stub = rpc_init_stub(
-        twitter_analyzer_storage_addr, twitter_analyzer_storage_port,
-        StorageService_pb2_grpc.StorageServiceStub,
-        service_name='[twint-multiprocessing] twitter analyzer storage'
-    )
+    storage_rpc_stub = None
+    if twitter_analyzer_storage_addr and twitter_analyzer_storage_port:
+        storage_rpc_stub = rpc_init_stub(
+            twitter_analyzer_storage_addr,
+            twitter_analyzer_storage_port,
+            StorageService_pb2_grpc.StorageServiceStub,
+            service_name='[twint-multiprocessing] twitter analyzer storage'
+        )
 
     def _func_exit_loop():
         #
@@ -225,16 +228,17 @@ def loop_store_tweets(
             StorageService_pb2.StoreTweetsRequest(tweet=tweet)
             for tweet in chunk_tweets
         ]
-        if storage_rpc_stub:
-            debug_infos = ", ".join(
+
+        def _format_debug_infos():
+            return ", ".join(
                 f"{user_name}#{counter}"
-                for user_name, counter in Counter(
-                    [tweet.tweet.user_name.lower()
-                     for tweet in tweets]).items()
+                for user_name, counter in Counter([tweet.tweet.user_name.lower() for tweet in tweets]).items()
             )
-            logger.debug(
-                f"gRPC: store {len(tweets)} tweets "
-                f"from users=({debug_infos}) in db ...")
+
+        logger.debug("gRPC: store %d tweets from users=(%s) in db ...", len(tweets), _format_debug_infos())
+
+        if storage_rpc_stub:
+            # -> gRPC Storage service
             store_tweets_stream_response = MessageToDict(
                 storage_rpc_stub.StoreTweetsStream(iter(tweets)),
                 including_default_value_fields=True
