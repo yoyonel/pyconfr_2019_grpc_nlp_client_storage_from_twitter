@@ -98,13 +98,11 @@ def build_parser(parser=None, **argparse_options):
     # GRPC SERVICES
     # - STORAGE
     parser.add_argument("--twitter_analyzer_storage_addr",
-                        default=os.environ.get('TWITTER_ANALYZER_STORAGE_SERVICE_HOST',
-                                               'localhost'),
+                        default=os.environ.get('GRPC_STORAGE_SERVICE_HOST', 'localhost'),
                         type=str,
                         help=f"{argparse_default}")
     parser.add_argument("--twitter_analyzer_storage_port",
-                        default=int(os.environ.get('TWITTER_ANALYZER_STORAGE_PORT',
-                                                   '50052')),
+                        default=int(os.environ.get('GRPC_STORAGE_PORT', '50052')),
                         type=int,
                         help=f"{argparse_default}",
                         metavar='')

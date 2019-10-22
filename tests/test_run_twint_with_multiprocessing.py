@@ -1,39 +1,54 @@
 import logging
+import math
 import multiprocessing
+from collections import defaultdict
+
+import pytest
 import queue
 from dataclasses import dataclass
-from typing import Iterator
+from typing import Iterator, List
 
-import math
 import twint
-from pyconfr_2019.grpc_nlp.protos.StorageService_pb2 import StoreTweetsResponse
+from pyconfr_2019.grpc_nlp.protos.StorageService_pb2 import StoreTweetsResponse, StoreTweetsRequest
 
 from storage.processors.twint_with_multiprocess import run_twint_with_multiprocessing
 
+cache_multiprocessing = {}
 
-def test_run_twint_with_multiprocessing(mocker, caplog):
-    twint_configs = []
-    twitter_users = ["PyConFr"]
-    twint_limit = 25
+
+@pytest.fixture
+def build_twint_configs():
+    def _build_twint_configs(twitter_users=("PyConFr", "PyCon")):
+        twint_configs = []
+        twint_limit = 25
+        twint_debug = False
+        for twitter_user in twitter_users:
+            twint_config = twint.Config()
+            twint_config.Username = twitter_user
+            twint_config.Limit = twint_limit  # bug with the Limit parameter not working only factor of 25 tweets
+            twint_config.Debug = twint_debug
+            twint_configs.append(twint_config)
+        return twint_configs
+
+    return _build_twint_configs
+
+
+def test_run_twint_with_multiprocessing(build_twint_configs, mocker, caplog):
     nb_tweets_by_chunk = 20
-    twint_debug = False
-    for twitter_user in twitter_users:
-        twint_config = twint.Config()
-        twint_config.Username = twitter_user
-        twint_config.Limit = twint_limit  # bug with the Limit parameter not working only factor of 25 tweets
-        twint_config.Debug = twint_debug
-        twint_configs.append(twint_config)
+    twitter_users = ("PyConFr", "PyCon", "ThePSF")
+    twint_configs = build_twint_configs(twitter_users)
+    twint_limit = twint_configs[0].Limit
 
     class MockRpcInitStub:
         def __init__(self, _mp_queue: queue.Queue):
             self._mp_queue = _mp_queue
 
         def StoreTweetsStream(self, iter_pb2_tweets_responses: Iterator[StoreTweetsResponse]):
-            pb2_tweets = list(iter_pb2_tweets_responses)
-            for pb2_tweet in pb2_tweets:
+            i_tweet = 0
+            for i_tweet, pb2_tweet in enumerate(iter_pb2_tweets_responses, start=1):
                 self._mp_queue.put(pb2_tweet)
-            return StoreTweetsResponse(nb_tweets_received=len(pb2_tweets),
-                                       nb_tweets_stored=len(pb2_tweets))
+            return StoreTweetsResponse(nb_tweets_received=i_tweet,
+                                       nb_tweets_stored=i_tweet)
 
     mock_rpc_init_stub = mocker.patch('storage.processors.twint_with_multiprocess.rpc_init_stub')
     # Need to use a MultiProcess (synchronized) Queue
@@ -45,7 +60,9 @@ def test_run_twint_with_multiprocessing(mocker, caplog):
     with caplog.at_level(logging.DEBUG):
         run_twint_with_multiprocessing(
             twint_configs,
-            *('Test', 12345),  # dummy connection parameters to instantiate
+            # dummy connection parameters to instantiate
+            rpc_storage_addr="Test",
+            rpc_storage_port=12345,
             # a connection to rpc storage server
             nb_tweets_by_chunk=nb_tweets_by_chunk,
             log_level="debug"
@@ -71,5 +88,11 @@ def test_run_twint_with_multiprocessing(mocker, caplog):
                     raise StopIteration
             return pb2_tweets
 
-    tweets = list(GenPb2Tweets(mp_queue))
-    assert len(tweets) == nb_tweets_by_chunk * nb_twitter_api_requests
+    store_tweets_request = list(GenPb2Tweets(mp_queue))  # type: List[StoreTweetsRequest]
+    assert len(store_tweets_request) == nb_tweets_by_chunk * nb_twitter_api_requests * len(twint_configs)
+
+    tweets_by_users = defaultdict(list)
+    for store_tweet_request in store_tweets_request:
+        tweet = store_tweet_request.tweet
+        tweets_by_users[tweet.user_name].append(tweet)
+    assert sorted(list(map(str.lower, tweets_by_users.keys()))) == sorted(map(str.lower, twitter_users))
