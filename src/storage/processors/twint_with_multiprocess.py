@@ -24,8 +24,8 @@ logger = logging.getLogger(__name__)
 
 def run_twint_with_multiprocessing(
         twint_configs,
-        twitter_analyzer_storage_addr,
-        twitter_analyzer_storage_port,
+        rpc_storage_addr,
+        rpc_storage_port,
         nb_tweets_by_chunk=20,
         log_level: Optional[str] = None
 ):
@@ -33,8 +33,8 @@ def run_twint_with_multiprocessing(
 
     Args:
         twint_configs:
-        twitter_analyzer_storage_addr:
-        twitter_analyzer_storage_port:
+        rpc_storage_addr:
+        rpc_storage_port:
         nb_tweets_by_chunk:
         log_level:
 
@@ -52,8 +52,8 @@ def run_twint_with_multiprocessing(
         kwargs={
             'queue_sync_with_twint': mp_queue,
             'event_twint_worker_is_finish': mp_event_twint_worker_is_finish,
-            'twitter_analyzer_storage_addr': twitter_analyzer_storage_addr,
-            'twitter_analyzer_storage_port': twitter_analyzer_storage_port,
+            'twitter_analyzer_storage_addr': rpc_storage_addr,
+            'twitter_analyzer_storage_port': rpc_storage_port,
             'nb_tweets_by_chunk': nb_tweets_by_chunk,
             'log_level': log_level,
         }
